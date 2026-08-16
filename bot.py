@@ -173,8 +173,10 @@ async def send_balance_card(message, address: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Hi! I report *litPearls* balances on the LitVM LiteForge testnet.\n\n"
-        "Use it two ways:\n"
-        "• /balance <wallet address> — works here or in any group I'm in\n"
+        "Just send me a wallet address and I'll reply with its balance and "
+        "the token's total supply — no command needed.\n\n"
+        "You can also:\n"
+        "• Use /balance <wallet address>\n"
         "• Type @{bot} <wallet address> in *any* Telegram chat (inline mode) — "
         "no need to add me to the group!".format(bot=context.bot.username),
         parse_mode=ParseMode.MARKDOWN,
@@ -196,24 +198,19 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_balance_card(update.message, address)
 
 
-async def address_in_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """If someone @-mentions the bot together with an address in a group, reply."""
+async def address_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Replies with the balance whenever a message contains a wallet address —
+    no /balance command or @mention needed. Works automatically in DMs.
+    In groups, this only fires if the bot's privacy mode is disabled via
+    @BotFather (/setprivacy -> Disable), otherwise Telegram only forwards
+    messages that mention the bot or reply to it."""
     message = update.effective_message
     if not message or not message.text:
         return
 
-    bot_username = context.bot.username
-    if f"@{bot_username}" not in message.text:
-        return
-
     match = ADDRESS_RE.search(message.text)
     if not match:
-        await message.reply_text(
-            "Mention me with a wallet address to get its litPearls balance, "
-            "e.g. `@{bot} 0x1234...abcd`".format(bot=bot_username),
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
+        return  # not an address, ignore silently (don't spam the chat)
 
     await send_balance_card(message, match.group(0))
 
@@ -289,9 +286,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("balance", balance_command))
     app.add_handler(InlineQueryHandler(inline_query))
-    app.add_handler(
-        MessageHandler(filters.TEXT & filters.Entity("mention"), address_in_group_message)
-    )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, address_message))
 
     logger.info("litPearls bot starting (polling)...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
