@@ -174,11 +174,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Hi! I report *litPearls* balances on the LitVM LiteForge testnet.\n\n"
         "Just send me a wallet address and I'll reply with its balance and "
-        "the token's total supply — no command needed.\n\n"
-        "You can also:\n"
-        "• Use /balance <wallet address>\n"
-        "• Type @{bot} <wallet address> in *any* Telegram chat (inline mode) — "
-        "no need to add me to the group!".format(bot=context.bot.username),
+        "the token's total supply.",
         parse_mode=ParseMode.MARKDOWN,
     )
 
