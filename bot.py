@@ -155,8 +155,15 @@ def build_caption(address: str) -> str:
 
 
 async def send_balance_card(message, address: str):
-    """Sends the litPearls logo image with the balance/supply as its caption."""
+    """Sends the balance/supply info. Includes the litPearls logo image only
+    in private chats (DMs) — in groups it replies with text only, since the
+    image isn't relevant there."""
     caption = build_caption(address)
+
+    if message.chat.type != "private":
+        await message.reply_text(caption, parse_mode=ParseMode.MARKDOWN)
+        return
+
     try:
         with open(LOGO_PATH, "rb") as photo:
             await message.reply_photo(photo=photo, caption=caption, parse_mode=ParseMode.MARKDOWN)
@@ -237,6 +244,7 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     address = match.group(0)
+    is_private = update.inline_query.chat_type == "private"
 
     try:
         balance_str, supply_str, symbol = fetch_balance_and_supply(address)
@@ -244,20 +252,27 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         description = f"Total supply: {supply_str} {symbol}"
         caption = build_caption(address)
 
-        await update.inline_query.answer(
-            [
-                InlineQueryResultPhoto(
-                    id=address,
-                    photo_url=LOGO_URL,
-                    thumbnail_url=LOGO_URL,
-                    title=title,
-                    description=description,
-                    caption=caption,
-                    parse_mode=ParseMode.MARKDOWN,
-                )
-            ],
-            cache_time=10,
-        )
+        if is_private:
+            result = InlineQueryResultPhoto(
+                id=address,
+                photo_url=LOGO_URL,
+                thumbnail_url=LOGO_URL,
+                title=title,
+                description=description,
+                caption=caption,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            result = InlineQueryResultArticle(
+                id=address,
+                title=title,
+                description=description,
+                input_message_content=InputTextMessageContent(
+                    caption, parse_mode=ParseMode.MARKDOWN
+                ),
+            )
+
+        await update.inline_query.answer([result], cache_time=10)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Inline query failed for %s", address)
         await update.inline_query.answer(
